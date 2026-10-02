@@ -76,13 +76,38 @@
         start: start
       },
       events: {
+        onReady: function (e) {
+          // Segnale al contenitore: il player e' pronto e il video parte.
+          // Serve perche' la pagina risponde anche quando YouTube rifiuta
+          // l'embed: HTTP 200 non significa che il video si veda, quindi un
+          // semplice controllo di raggiungibilita' darebbe un falso "tutto
+          // bene" e lascerebbe un riquadro nero.
+          try {
+            e.target.playVideo();
+            window.parent.postMessage(
+              { source: 'trillo-yt', ready: true, id: id },
+              '*'
+            );
+          } catch (err) {}
+        },
         onError: function (e) {
-          // Segnale in console per capire il motivo dal debug remoto.
+          try {
+            window.parent.postMessage(
+              { source: 'trillo-yt', ready: false, code: e.data, id: id },
+              '*'
+            );
+          } catch (err) {}
           console.log('yt-error', e.data);
         }
       }
     });
   };
+
+  // Segnale appena la pagina e' viva, cosi' il contenitore sa almeno che
+  // l'iframe ha caricato anche se YouTube poi rifiuta il video.
+  try {
+    window.parent.postMessage({ source: 'trillo-yt', loaded: true, id: id }, '*');
+  } catch (e) {}
 })();
 </script>
 </body>
