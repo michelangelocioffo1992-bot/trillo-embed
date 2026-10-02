@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Player</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+  #player { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+</style>
+</head>
+<body>
+<div id="player"></div>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+// Pagina di supporto per l'embed di YouTube su iOS.
+//
+// Il problema: dentro la WebView di Capacitor l'app e' servita da uno schema
+// personalizzato (capacitor://localhost), quindi le richieste verso YouTube non
+// hanno un header Referer. YouTube pretende quel Referer per verificare chi
+// sta incorporando il player e se ne manca rifiuta l'embed con l'errore 153
+// ("embedder identity missing referrer"). Non e' un bug dell'app: e' un limite
+// della WebView iOS.
+//
+// La soluzione e' questa pagina, servita da GitHub Pages su un dominio https
+// reale. Il documento ha quindi un'origine valida, il Referer viene inviato e
+// YouTube riproduce esattamente come su Android.
+//
+// Nessun dato personale: si legge solo l'id del video dalla query string.
+(function () {
+  var params = new URLSearchParams(location.search);
+  var id = params.get('id') || '';
+
+  // Solo ID YouTube validi (11 caratteri), cosi' non si puo' usare questa
+  // pagina per puntare altrove.
+  if (!/^[A-Za-z0-9_-]{11}$/.test(id)) {
+    return;
+  }
+
+  var flag = function (name, fallback) {
+    var raw = params.get(name);
+    if (raw === null) return fallback;
+    var n = Number(raw);
+    return isFinite(n) && n ? 1 : 0;
+  };
+
+  var autoplay = flag('autoplay', 1);
+  var mute = flag('mute', 1);
+  var controls = flag('controls', 1);
+  var loop = flag('loop', 0);
+  var start = Math.max(0, parseInt(params.get('start') || '0', 10) || 0);
+
+  // `origin` indica a YouTube quale origine si aspetta: senza, l'iframe API
+  // rifiuta le chiamate postMessage.
+  var origin = location.origin;
+
+  window.onYouTubeIframeAPIReady = function () {
+    new YT.Player('player', {
+      width: '100%',
+      height: '100%',
+      videoId: id,
+      playerVars: {
+        autoplay: autoplay,
+        mute: mute,
+        controls: controls,
+        playsinline: 1,
+        rel: 0,
+        modestbranding: 1,
+        iv_load_policy: 3,
+        loop: loop,
+        // Il loop funziona solo se la playlist contiene il video stesso.
+        list: loop ? id : undefined,
+        enablejsapi: 1,
+        origin: origin,
+        start: start
+      },
+      events: {
+        onError: function (e) {
+          // Segnale in console per capire il motivo dal debug remoto.
+          console.log('yt-error', e.data);
+        }
+      }
+    });
+  };
+})();
+</script>
+</body>
+</html>
